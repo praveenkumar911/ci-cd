@@ -1,113 +1,127 @@
----
 
-# 0007 - Performance Data Platform
+# 0007. Performance Data Platform
 
-##  Metadata
+## Status
 
-- **Status**: Proposed (2021-06-16), Partially Rejected (2022-09-26)
-- **Deciders**: [Names of Deciders]
-- **Date**: 2021-09-06
-- **Related ADRs**: [0006-modernise-the-code-base](./0006-modernise-the-code-base.md)
+- **Proposed**: 2021-06-16  
+- **Partially Rejected**: 2022-09-26  
+  - Partial rejection involved scaling back the infrastructure. SQS queues and lambdas were replaced with a simpler Docker-based approach for a feedback form running alongside the PHP app.
 
 ---
 
-## Context and Problem Statement
+## Context
 
-The Make an LPA service currently relies on manual processes to collate and publish performance data. This includes:
+We have a requirement to publish performance data about the **Make an LPA service**. The key metrics we must track and publish are:
 
-- **User Satisfaction**: Ratings provided by users on a 5-point scale, collected via a centralized government feedback page.
-- **Completion Rate**: The percentage of transactions started by users that are subsequently completed, derived from Google Analytics and the database.
-- **Digital Take-Up**: The percentage of users using the online service compared to other channels (e.g., paper or phone), which is manually collected from Sirius (OPG's case management system).
+1. **User Satisfaction**: Ratings of the service provided by users on a 5-point scale ("Very Dissatisfied" to "Very Satisfied"). This data is currently collected through a [centralized government feedback page](https://www.gov.uk/done/lasting-power-of-attorney).
+2. **Completion Rate**: Percentage of transactions started on the service that are subsequently completed. This is derived from Google Analytics and the database.
+3. **Digital Take-Up**: Number of users using the online service as a percentage of users across all channels (online, paper, phone, etc.). Currently, there is no API for this metric.
 
-Manual collation is time-consuming, error-prone, and inefficient. Automating this process will improve accuracy, reduce overhead, and make the data more accessible for stakeholders. Additionally, this project provides an opportunity to test the proposed modernized technology stack (see [0006-modernise-the-code-base](./0006-modernise-the-code-base.md)).
+Currently, this data is manually collated, which is inefficient and prone to errors. Automating this process will improve accuracy and reduce overhead.
+
+As a secondary objective, this project provides an opportunity to test our proposed new technology stack (see [0006-modernise-the-code-base](./0006-modernise-the-code-base.md)).
 
 ---
 
 ## Decision Drivers
 
+- **Efficiency**: Automate manual processes to reduce overhead and human error.
 - **Scalability**: Ensure the solution can handle future growth in data volume and complexity.
-- **Ease of Implementation**: Minimize development effort while addressing key requirements.
-- **Cost Efficiency**: Avoid unnecessary infrastructure or operational expenses.
-- **Alignment with Long-Term Goals**: Use this project as a stepping stone toward adopting modern architectural practices and technologies.
+- **Cost-Effectiveness**: Avoid over-engineering by balancing simplicity with functionality.
+- **Alignment with Long-Term Goals**: Use this project as a stepping stone toward modernizing the codebase and adopting microservices architecture.
 
 ---
 
 ## Considered Options
 
 1. **Embedded Architecture**:
-   - Leverage the existing application stack (e.g., PostgreSQL database, API proxy) to implement the data platform.
-   - Pros:
-     - Reuses existing infrastructure, reducing complexity and cost.
-     - Aligns with long-term goals of modernizing the codebase incrementally.
-   - Cons:
-     - Tight coupling with the existing application may introduce risks if the platform scales significantly.
-
+   - Reuse existing infrastructure (e.g., PostgreSQL database, API proxy) to implement the data platform.
+   - Minimize additional provisioning costs and complexity.
 2. **Standalone Architecture**:
-   - Implement the data platform as a completely separate system with its own database, proxy, and ingress rules.
-   - Pros:
-     - Fully decoupled from the existing application, offering greater flexibility.
-   - Cons:
-     - Adds significant complexity and cost (e.g., new database, Terraform scripting, load balancer).
+   - Implement the data platform as a completely isolated system with its own database, proxy, and ingress rules.
+   - Provides greater separation but introduces significant complexity and cost.
 
 ---
 
 ## Decision Outcome
 
-### Chosen Option: Embedded Architecture (Partially Implemented)
+### Chosen Option: Embedded Architecture
 
-After discussions, we decided to adopt an **embedded architecture**, reusing parts of the existing stack to minimize complexity and cost. However, the original plan was scaled back due to concerns about over-engineering. Specifically:
+The team decided on an **embedded architecture** for the following reasons:
+- It reuses existing infrastructure, reducing complexity and cost.
+- It aligns with the goal of incrementally modernizing the codebase without overhauling the entire system.
+- A standalone architecture was deemed unnecessary for the relatively simple requirements of this service.
 
-- The **complex infrastructure** (e.g., SQS queues, AWS Lambda functions) was replaced with a simpler Docker-based approach.
-- The solution now focuses on a **feedback form** running as a Python Flask application alongside the PHP app, which records user satisfaction scores.
+#### Positive Consequences
+- Reduces the need for additional provisioning (e.g., separate databases, proxies).
+- Aligns with long-term architectural goals by introducing modern components (e.g., Python Flask app, Docker).
+- Automates manual processes, improving accuracy and efficiency.
 
-This decision balances short-term implementation simplicity with long-term architectural goals.
-
----
-
-## Consequences
-
-### Positive Consequences
-
-- **Automation**: Reduces manual effort and potential for human error in collating performance data.
-- **Transparency**: Documents the assumptions and processes behind data gathering, making them visible to stakeholders.
-- **Foundation for Modernization**: Provides a gateway to adopting modern technologies and practices incrementally.
-
-### Negative Consequences
-
-- **Limited Scope**: The scaled-back implementation does not fully automate all data sources (e.g., Digital Take-Up still requires manual intervention).
-- **Technical Debt**: Tight coupling with the existing stack may create challenges if the platform needs to scale significantly in the future.
+#### Negative Consequences
+- The embedded design may introduce coupling between the data platform and the existing application, potentially complicating future migrations.
+- Limited scalability compared to a standalone architecture.
 
 ---
 
 ## Pros and Cons of the Options
 
 ### Embedded Architecture
-
 - **Pros**:
-  - Reuses existing infrastructure, reducing complexity and cost.
-  - Aligns with long-term goals of modernizing the codebase incrementally.
+  - Cost-effective and minimizes additional infrastructure.
+  - Leverages existing components, reducing implementation time.
+  - Provides a gradual transition toward modernization.
 - **Cons**:
-  - Tight coupling with the existing application may limit scalability.
+  - Potential for increased coupling between systems.
+  - Limited scalability for future needs.
 
 ### Standalone Architecture
-
 - **Pros**:
-  - Fully decoupled from the existing application, offering greater flexibility.
+  - Complete separation of concerns, reducing coupling.
+  - Easier to scale independently in the future.
 - **Cons**:
-  - Adds significant complexity and cost (e.g., new database, Terraform scripting, load balancer).
+  - Adds significant complexity and cost.
+  - Requires additional provisioning (e.g., databases, proxies, ingress rules).
 
 ---
 
-## Additional Notes
+## Implementation Approach
 
-- **Acronyms Explained**:
-  - **LPA**: Lasting Power of Attorney
-  - **SQS**: Simple Queue Service (AWS)
-  - **API**: Application Programming Interface
-  - **C4 Model**: A framework for visualizing software architecture (https://c4model.com/)
+1. **Data Sources**:
+   - **User Satisfaction**: Collected via a new feedback form based on the existing centralized form.
+   - **Completion Rate**: Calculated by counting LPA applications that reach a "created" state, excluding applications completed within a single session.
+   - **Digital Take-Up**: Request a new endpoint on the Sirius data API to provide this data.
 
-- **Next Steps**:
-  - Implement the Python Flask feedback form and integrate it with the existing PHP app.
-  - Evaluate the feasibility of automating Digital Take-Up data collection in the future.
+2. **High-Level Architecture**:
+   - The data platform API is positioned behind the existing `api-web` proxy.
+   - The worker process and API write to the existing PostgreSQL database but use new tables for storing performance data.
+   - Diagrams illustrating the embedded architecture are available:
+     - [System Landscape View](../images/structurizr-SystemLandscapeEmbedded.png)
+     - [Container View](../images/structurizr-ContainerEmbedded.png)
+
+3. **Implementation Details**:
+   - The data platform is implemented in Python using AWS Lambdas (or Docker for local development).
+   - A queue-based workflow using SQS is used to generate performance data and notify clients when ready.
+   - User satisfaction data is stored in a separate table in the PostgreSQL database, managed using SQLAlchemy (with Alembic for migrations).
+   - An interface in the admin UI allows admin users to view user satisfaction data.
+   - Initially, user satisfaction data is collected via a PHP form in the front-end app, posting to the new Python API. This will serve as a test case for migrating to microfrontend slices.
 
 ---
+
+## Consequences
+
+### Pros
+- Automates manual processes, reducing overhead and human error.
+- Makes performance data easily accessible and requestable by other services (e.g., [data.gov.uk](https://data.gov.uk/)).
+- Provides a foundation for modernizing the codebase incrementally.
+
+### Cons
+- The embedded design introduces some coupling between systems, which may complicate future migrations.
+- Initial implementation effort is significant for a relatively simple use case.
+
+---
+
+## Glossary
+
+- **LPA**: Lasting Power of Attorney.
+- **SQS**: Amazon Simple Queue Service.
+- **C4 Model**: A framework for visualizing software architecture (Context, Containers, Components, Code).
